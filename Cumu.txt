@@ -1,0 +1,54 @@
+การติดตั้ง GitLab Server ด้วยตัวเอง (Self-hosted) เป็นงานใหญ่และกินทรัพยากรเครื่องพอสมควรครับ แต่สำหรับการแข่งขันหรือการฝึกซ้อม วิธีที่ ง่ายที่สุด เร็วที่สุด และนิยมที่สุด คือการติดตั้งผ่าน Docker ครับ
+ผมจะสรุปขั้นตอนแบบ "จับมือทำ" ตั้งแต่เริ่มจนพร้อมใช้งาน CI/CD ตามโจทย์เลยครับ
+ขั้นตอนที่ 1: เตรียมเครื่อง (Server Spec)
+GitLab เป็นโปรแกรมที่หนักมากครับ ก่อนลงต้องเช็คเครื่องก่อน:
+RAM: ต้องมีอย่างน้อย 4GB (ถ้าให้ดี 8GB) ไม่งั้นรันแล้วค้างแน่นอน
+Disk: ควรมีที่ว่าง 20-30GB ขึ้นไป
+ขั้นตอนที่ 2: สร้างไฟล์ติดตั้ง (Docker Compose)
+เราจะไม่พิมพ์คำสั่งยาวๆ เราจะใช้ไฟล์ docker-compose.yaml เพื่อให้จัดการง่ายครับ
+
+mkdir -p /opt/gitlab/config /opt/gitlab/data /opt/gitlab/logs
+cd /opt/gitlab
+
+nano docker-compose.yaml
+
+version: '3.6'
+services:
+  web:
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    hostname: 'gitlab.local' # หรือชื่อโดเมนที่คุณต้องการ
+    container_name: gitlab
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://IP_ADDRESS_เครื่องคุณ' # เปลี่ยนตรงนี้เป็น IP เครื่อง Server
+        # ปิด Prometheus เพื่อประหยัด RAM (สำคัญมากสำหรับเครื่องสเปคน้อย)
+        prometheus_monitoring['enable'] = false
+    ports:
+      - '80:80'    # พอร์ตเข้าเว็บ
+      - '443:443'  # พอร์ต HTTPS
+      - '2222:22'  # พอร์ต SSH (เลี่ยงไม่ให้ชนกับ SSH หลักของเครื่อง)
+    volumes:
+      - './config:/etc/gitlab'
+      - './logs:/var/log/gitlab'
+      - './data:/var/opt/gitlab'
+    shm_size: '256m'
+
+docker-compose up -d
+
+ขั้นตอนที่ 3: การเข้าใช้งานครั้งแรก (Login)
+เมื่อรันเสร็จแล้ว คุณจะเข้าเว็บได้ แต่ยังไม่รู้รหัสผ่าน ให้ทำตามนี้:
+
+docker exec -it gitlab grep 'Password:' /etc/gitlab/initial_root_password
+ล็อกอิน:
+เปิด Browser เข้า http://IP_ADDRESS_เครื่องคุณ
+Username: root
+Password: (รหัสยาวๆ ที่ได้จากข้อ 1)
+
+ขั้นตอนที่ 4: ติดตั้ง GitLab Runner (เพื่อให้ทำโจทย์ CI/CD ได้)
+ตัว GitLab เฉยๆ เป็นแค่ที่เก็บโค้ด ถ้าจะให้มันรัน "Pipeline" (ตามโจทย์ข้อ 2.6-2.7) ต้องมีลูกน้องชื่อ GitLab Runner ครับ
+
+docker run -d --name gitlab-runner --restart always \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /srv/gitlab-runner/config:/etc/gitlab-runner \
+  gitlab/gitlab-runner:latest
