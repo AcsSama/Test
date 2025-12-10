@@ -1,0 +1,171 @@
+sudo -i
+apt update && apt upgrade -y
+adduser ชื่อUser
+usermod -aG sudo ชื่อUser
+====================================================== 
+netplan
+cp /etc/netplan/50-xxxxxxxx.yml/ etc/netplan/50-xxxxxxxx.yml.bak
+vim /etc/netplan/50-xxxxxxxx.yml 
+
+dhcp: no
+      addresses:
+           - 192.168.132.xxx/23-24
+       nameservers:
+             addresses: 
+                - 192.168.132.xxx
+        routes:
+            - to: default
+               via: 192.168.132.1
+chmod 600 /etc/netplan/01-xxxxxxx.yml
+netplan apply
+
+apt install openssh-server -y
+vim /etc/ssh/sshd_config 
+ลบ # หน้า port 22
+ลบ #  PermitRootLogin และเปลี่ยนค่า เป็น No
+Save และ restart Service [systemctl restart ssh]
+====================================================== 
+Hosts
+vim /etc/hosts
+แก้ 127.0.0.1     เป็นชื่อ้น Domain
+เพิ่ม 192.168.132.252   registry.[domain]
+เพิ่ม 192.168.132.252   gitlab.[domain] 
+nmtui เพิ่มเข้าไปแก้ Domain Name เช่น kptit.kpt.ac.th
+====================================================== 
+Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+======================================================
+portainer
+docker volume create portainer_data
+docker run -d -p 9443:9443 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data 
+portainer/portainer-ce:latest
+version: '3.8'  
+
+networks:
+  app_net:
+    external: true
+
+volumes:
+  registry_data:
+    external: true
+
+services:
+  registry:
+    image: registry:2
+    container_name: registry
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: 'true'
+    networks:
+      - app_net
+    volumes:
+      - registry_data:/var/lib/registry
+
+  registry-ui:
+    image: joxit/docker-registry-ui:main
+    container_name: registry-ui
+    restart: always
+    networks:
+      - app_net
+    ports:
+      - "8080:80"
+    environment:
+      - SINGLE_REGISTRY=true
+      - REGISTRY_TITLE=Docker Registry UI
+      - DELETE_IMAGES=true
+      - SHOW_CONTENT_DIGEST=true
+      - NGINX_PROXY_PASS_URL=http://registry:5000
+      - SHOW_CATALOG_NB_TAGS=true
+      - CATALOG_MIN_BRANCHES=1
+      - CATALOG_MAX_BRANCHES=1
+      - TAGLIST_PAGE_SIZE=100
+      - REGISTRY_SECURED=false
+      - CATALOG_ELEMENTS_LIMIT=1000
+    depends_on:
+      - registry
+
+sudo nano /etc/docker/daemon.json
+
+{
+"insecure-registries": ["registry.[domain]:5000"]
+}
+
+systemctl restart docker
+docekr pull ubuntu:latest
+docker tag ubuntu:latest registry.[domain]:5000/kpt-os:v1
+docker push registry.[domain] :5000/kpt-os:v1
+
+====================================================== 
+Gitlab
+sudo mkdir -p /srv/gitlab/config
+sudo mkdir -p /srv/gitlab/logs
+sudo mkdir -p /srv/gitlab/data
+
+sudo docker run --detach \
+  --hostname gitlab.kptit.kpt.ac.th \
+  --publish 443:443 --publish 80:80 --publish 2222:22 \
+  --name gitlab \
+  --network app_net \
+  --restart always \
+  --volume /srv/gitlab/config:/etc/gitlab \
+  --volume /srv/gitlab/logs:/var/log/gitlab \
+  --volume /srv/gitlab/data:/var/opt/gitlab \
+  gitlab/gitlab-ce:latest
+docker exec -it gitlab grep 'Password:' /etc/gitlab/initial_root_password
+
+====================================================== 
+
+version: '3.8'
+
+services:
+  db:
+    image: mariadb:10.6
+    container_name: mariadb_server
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234      # รหัสผ่าน Root
+      MYSQL_DATABASE: my_app         # สร้าง Database ชื่อนี้ให้เลย
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  # 2. หน้าจัดการ Database (phpMyAdmin) -> เข้าผ่านพอร์ต 8081
+  pma:
+    image: phpmyadmin/phpmyadmin
+    container_name: pma_server
+    restart: always
+    environment:
+      PMA_HOST: db
+    ports:
+      - "8081:80"                    # เจาะประตู 8081
+    networks:
+      - app_net
+
+  # 3. เว็บไซต์ (Apache+PHP) -> เข้าผ่านพอร์ต 8082
+  web:
+    image: php:8.1-apache
+    container_name: web_server
+    restart: always
+    ports:
+      - "8082:80"                    # เจาะประตู 8082
+    volumes:
+      - ./www:/var/www/html
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    external: true
+
+volumes:
+  db_data:
+
+
+
+
+
+
