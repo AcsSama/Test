@@ -1,0 +1,41 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <DHT.h>
+
+#define DHTPIN 14
+#define DHTTYPE DHT11
+
+const char* ssid = "";
+const char* pass = "";
+const char* mqtt_ip = "";
+
+DHT dht(DHTPIN,DHTTYPE);
+WiFiClient esp;
+PubSubClient client (esp);
+
+void setup (){
+   Serial.begin(115200);
+   dht.begin();
+   WiFi.begin(ssid,pass);
+   client.setServer(mqtt_ip,1883);
+}
+
+void loop (){
+    if(WiFi.status() != WL_CONNECTED){
+    delay(500);
+    return;
+  }
+
+    if(!client.connected()) client.connect("espkpt68");
+    client.loop();
+
+    float t = dht.readTemperature();
+    float h = dht.readHumidity();
+
+    String msg = "{\"t\":" + String(t) + ",\"h\":" + String(h)+ "}";
+
+   client.publish("hello", msg.c_str());
+   Serial.println(msg);
+
+   delay(2000);
+}
