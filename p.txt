@@ -1,0 +1,40 @@
+# ติดตั้ง jdk
+sudo apt update
+sudo apt install openjdk-17-jre-headless -y
+java -version
+
+# เพิ่ม key
+mkdir -p /etc/apt/keyrings
+wget -O /etc/apt/keyrings/jenkins-keyring.asc \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+chmod 644 /etc/apt/keyrings/jenkins-keyring.asc
+
+# เพิ่ม repo
+echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] \
+https://pkg.jenkins.io/debian-stable binary/" | sudo tee \
+/etc/apt/sources.list.d/jenkins.list > /dev/null
+
+# ติดตั้ง jenkins
+sudo apt update
+sudo apt install jenkins -y
+
+# เปิดและทดสอบ port เดิมของ Jenkins
+sudo systemctl enable jenkins
+sudo systemctl start jenkins
+sudo systemctl status jenkins
+
+# เปลี่ยน port Jenkins
+sudo systemctl edit --full Jenkins
+
+แก้จาก 
+Environment="JENKINS_PORT=8080"
+เป็น
+Environment="JENKINS_PORT=8081"
+
+# บันทึกแล้ว reload
+sudo systemctl daemon-reload
+sudo systemctl restart jenkins
+
+# เช็ค port java
+sudo ss -ltnp | grep java
+curl -I http://localhost:port
