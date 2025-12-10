@@ -1,0 +1,184 @@
+exam-app/
+├── docker-compose.yaml   (ไฟล์ตั้งค่า Server)
+└── src/
+    └── index.php         (ไฟล์โค้ดหน้าเว็บและคำสั่ง SQL)
+
+1. ไฟล์ docker-compose.yaml
+ก๊อปปี้โค้ดนี้ไปวางในไฟล์ docker-compose.yaml ครับ
+
+version: '3.8'
+
+services:
+  # 1. บริการเว็บ (PHP + Apache)
+  web:
+    image: php:7.4-apache
+    container_name: my-web-container
+    ports:
+      - "8080:80"        # เข้าเว็บผ่าน localhost:8080
+    volumes:
+      - ./src:/var/www/html # เชื่อมโค้ดในโฟลเดอร์ src ไปเข้า Container
+    depends_on:
+      - db               # สั่งให้รอ Database รันเสร็จก่อน
+    # ติดตั้ง Extension ที่จำเป็นสำหรับคุยกับ Database
+    command: >
+      bash -c "docker-php-ext-install pdo pdo_mysql && apache2-foreground"
+
+  # 2. บริการฐานข้อมูล (MariaDB/MySQL)
+  db:
+    image: mariadb:10.6
+    container_name: my-db-container
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword  # รหัสผ่าน Root
+      MYSQL_DATABASE: exam_db            # ชื่อ Database ที่จะสร้าง
+      MYSQL_USER: user1                  # ชื่อ User
+      MYSQL_PASSWORD: userpassword       # รหัสผ่าน User
+    volumes:
+      - db_data:/var/lib/mysql           # กันข้อมูลหาย
+
+volumes:
+  db_data:
+
+2. ไฟล์ src/index.php
+ให้สร้างโฟลเดอร์ชื่อ src ก่อน แล้วสร้างไฟล์ index.php ข้างใน ก๊อปปี้โค้ดนี้ไปวางครับ
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Exam Result</title>
+    <style>table, th, td { border: 1px solid black; border-collapse: collapse; padding: 10px; }</style>
+</head>
+<body>
+    <h1>ระบบทดสอบฐานข้อมูล (ตามเกณฑ์ข้อ App + DB)</h1>
+
+    <?php
+    // --- ส่วนตั้งค่า (ต้องตรงกับ docker-compose.yaml) ---
+    $servername = "db";  // *สำคัญ* ต้องใช้ชื่อ Service "db" ห้ามใช้ localhost
+    $username = "user1";
+    $password = "userpassword";
+    $dbname = "exam_db";
+
+    try {
+        // 1. เชื่อมต่อฐานข้อมูล
+        $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);
+        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        echo "<h3 style='color:green;'>✅ Connected successfully (เชื่อมต่อสำเร็จ)</h3>";
+
+        // 2. สร้างตาราง (ถ้ายังไม่มี)
+        $sql_create = "CREATE TABLE IF NOT EXISTS sensor_data (
+            id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            val INT(3) NOT NULL,
+            status VARCHAR(30) NOT NULL,
+            reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )";
+        $conn->exec($sql_create);
+
+        // 3. (INSERT) ลองเพิ่มข้อมูลเข้าไปทุกครั้งที่รีเฟรชหน้าเว็บ
+        $randVal = rand(100, 500); // สุ่มค่าควัน
+        $status = ($randVal > 300) ? "Danger" : "Normal";
+        $sql_insert = "INSERT INTO sensor_data (val, status) VALUES ($randVal, '$status')";
+        $conn->exec($sql_insert);
+        echo "Insert New Data: Value = $randVal ($status)<br><br>";
+
+        // 4. (SELECT) ดึงข้อมูลมาแสดงผล
+        $stmt = $conn->prepare("SELECT id, val, status, reg_date FROM sensor_data ORDER BY id DESC LIMIT 10");
+        $stmt->execute();
+        $result = $stmt->fetchAll();
+
+        // แสดงตาราง
+        echo "<table><tr><th>ID</th><th>Smoke Value</th><th>Status</th><th>Time</th></tr>";
+        foreach($result as $row) {
+            $color = ($row['status'] == 'Danger') ? 'red' : 'green';
+            echo "<tr>";
+            echo "<td>" . $row['id'] . "</td>";
+            echo "<td>" . $row['val'] . "</td>";
+            echo "<td style='color:$color; font-weight:bold;'>" . $row['status'] . "</td>";
+            echo "<td>" . $row['reg_date'] . "</td>";
+            echo "</tr>";
+        }
+        echo "</table>";
+
+    } catch(PDOException $e) {
+        echo "<h3 style='color:red;'>❌ Connection failed: " . $e->getMessage() . "</h3>";
+    }
+    ?>
+</body>
+</html>
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom IoT Dashboard</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f4f4f9; text-align: center; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .status-box { font-size: 24px; font-weight: bold; margin: 20px 0; padding: 15px; border-radius: 8px; display: inline-block; width: 100%; }
+        .safe { background-color: #d4edda; color: #155724; }
+        .danger { background-color: #f8d7da; color: #721c24; }
+        .value-display { font-size: 80px; font-weight: bold; color: #333; margin: 10px 0; }
+        canvas { max-width: 100%; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🔥 ระบบตรวจจับควันเรียลไทม์</h1>
+        <p>เชื่อมต่อผ่าน MQTT WebSockets (Port 9001)</p>
+
+        <div id="statusBox" class="status-box safe">สถานะ: ปลอดภัย</div>
+        <div class="value-display"><span id="smokeValue">0</span> <span style="font-size:20px">ppm</span></div>
+
+        <canvas id="smokeChart"></canvas>
+    </div>
+
+    <script>
+        // --- 1. ตั้งค่าการเชื่อมต่อ ---
+        // ถ้าทดสอบในเครื่องตัวเองใช้ localhost, ถ้าServerอื่นให้ใส่ IP
+        const mqttUrl = 'ws://localhost:9001'; 
+        const topic = 'sensor/smoke';
+
+        // --- 2. ตั้งค่ากราฟ (Chart.js) ---
+        const ctx = document.getElementById('smokeChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // เวลา
+                datasets: [{
+                    label: 'ระดับควัน (Smoke Level)',
+                    data: [],
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true, max: 1000 } }
+            }
+        });
+
+        // --- 3. เริ่มเชื่อมต่อ MQTT ---
+        console.log("Connecting to MQTT...");
+        const client = mqtt.connect(mqttUrl);
+
+        client.on('connect', () => {
+            console.log('✅ Connected via WebSockets!');
+            client.subscribe(topic, (err) => {
+                if (!err) console.log(`Subscribed to ${topic}`);
+            });
+        });
+
+        client.on('message', (topic, message) => {
