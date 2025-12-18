@@ -1,0 +1,1 @@
+{"status":"success","data":[{"id":"1","stdname":"Chanwit Mangchieng","email":"mu@gmail.com","telephone":"1234567890"},{"id":"2","stdname":"Athipat Phattanaklun","email":"Ivaan@gmail.com","telephone":"1234567890"}]}
