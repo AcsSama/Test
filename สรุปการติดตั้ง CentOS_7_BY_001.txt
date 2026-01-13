@@ -1,0 +1,382 @@
+=============================
+##### Installation Part #####
+=============================
+1.เมื่อบูตเข้าหน้า CentOS 7 ได้แล้ว ให้เลือกหัวข้อ install CentOS 7 แล้วกด Enter
+2.เลือกภาษาที่ต้องการใช้งานบน OS (English US) จากนั้นกดปุ่ม Continue
+3.กดไปที่หัวข้อ DATE & TIME
+ 3.1 เลือกทวีปและเมืองที่อยู่ และตั้งค่าเวลาให้ตรง จากนั้นกด Done
+4.กดไปที่หัวข้อ SOFTWARE SELECTION
+ 4.1 ในหัวข้อ Base Environment เลือกเป็น Basic Web Server
+ 4.2 ในหัวข้อ Add-Ons ให้เลือกตามที่ต้องการ จากนั้นกด Done
+5.กดไปที่หัวข้อ INSTALLATION SOURCE
+ 5.1 ในหัวข้อ Local Standard Disks ให้เลือกไปที่ Disks ที่ต้องการจะติดตั้ง CentOS
+ 5.2 ในหัวข้อ Other Storage Options -> Partitioning ให้เลือกเป็น Automatically configure partition หาต้องการแบ่ง partition แบบ auto หรือถ้าต้องการแบ่ง partition เองให้เลือกเป็น I will configure partitioning
+  ***** กรณีต้องการแบ่ง partition เอง *****
+  1.ให้เปลี่ยนจาก LVM เป็น Standard Partition
+  2.กดปุ่ม + และทำการตั้งค่า
+  ***** partition 1 : swap(4G) เป็น partition สำหรับพื้นที่แรมเพิ่มเติม
+  ***** partition 2 : /tmp(1G) เป็น partition ที่แยกออกมาเพื่อความปลอดภัยของเซิร์ฟเวอร์
+  ***** partition 3 : / พาร์ติชัน root จะแบ่งเป็นอันดับสุดท้ายเนื่องจากฮาร์ดดิสก์ที่เหลือจะถูกแบ่งมาในพาร์ติชั้นนี้ทั้งหมด
+  3.เลือก File System ในพาร์ติชันของ /tmp และ / จะตั้งค่าให้เป็น ext4 จากนั้นกด Done
+ 5.3 จะมีหน้า SUMMARY OF CHANGES ให้เช็ครายละเอียดจากนั้นกด Accept Changes
+6.กดไปที่หัวข้อ NETWORK & HOST NAME
+ 6.1 ตั้งชื่อ Host name ตามที่ต้องการ : nsxx.kpt.ac.th
+ 6.2 กดไปที่ปุ่ม Configure ทางด้านขวา
+ 6.3 ในหน้า General ให้ติ๊กเลือก Automatically connect to this network when it is available
+ 6.4 ในหน้า IPv4 Settings ให้ตั้งค่า
+  ***** Method ให้เลือกเป็น Manual
+  ***** ในหัวข้อ Addresses ให้กด Add และตั้งค่าให้ถูกต้อง
+  ***** Address 192.168.xxx.xxx
+  ***** Netmask 23
+  ***** Gateway 192.168.132.1
+  ***** DNS 192.168.132.1 
+  ***** เมื่อตั้งค่าเสร็จแล้วจากนั้นกด Save
+ 6.5 ในหัวข้อ Ethernet ให้เปิดเป็น ON จากนั้นกด Done
+7.เมื่อตั้งค่าทุกอย่างเสร็จแล้วให้กดปุ่ม Begin Installation
+8.ในระหว่างการติดตั้งให้กดไปที่ ROOT PASSWORD
+ 8.1 ตั้งรหัสผ่านของ root เมื่อเสร็จแล้วกด Done
+9.รอจนกว่าจะติดตั้งเสร็จแล้วกด Reboot
+##### End of Installation Part #####
+
+
+
+================================
+##### คำสั่งตรวจสอบระบบเบื้องต้น #####
+================================
+df -h
+ls -al
+ifconfig
+ping 127.0.0.1
+ping 192.168.132.2xx(เครื่องตัวเอง)
+ping nsxx.kpt.ac.th
+ping www.google.com
+ping kpt.ac.th
+#################################
+
+
+
+==================================
+##### การเทียบเวลา Time Server #####
+==================================
+yum-y install ntpdate
+ntpdate time.navy.mi.th
+date
+
+ข้อควรปฏิบัติในการปรับเทียบเวลามาตรฐานประเทศไทย
+1.ตั้ง NTP Server ของหน่วยงานเอง
+2.ให้เปิด Port 123 ของ Firewall
+3.กำหนดความถี่ในการ Time Synchornization วันละ 2 ครั้ง (เพื่อลด Traffic)
+
+วิธีการตั้งค่าให้ Sync อัตโนมัติ Sync ทุกวันตอนตี 3
+crontab -e
+0 3 * * * /usr/sbin/ntpdate time1.nimt.or.th >/dev/null 2>&1
+
+>/dev/null 2>&1
+ไม่ให้ปรากฎทั้งข้อความปกติและข้อความ error บนจอ และไม่ต้องมีอีเมลแจ้งเตือน
+##################################
+
+
+
+===============================
+##### Update/Upgrade ระบบ #####
+===============================
+nano หรือ vi /etc/yum.repos.d/CentOS-Base.repo
+
+ใส่ # หน้า mirror 
+ลบ # หน้า baseurl
+แก้ในส่วนของ baseurl ให้เป็น vault จาก mirror
+จากนั้น
+yum clean all
+yum update
+*****ถ้าตรงนี้ไม่ผ่านทำอย่างอื่นต่อไม่ได้*****
+
+การติดตั้ง packet เพิ่มเติม
+yum -y install wget net-tools epel-release
+
+wgetใช้สาหรับ Download ไฟล์จาก Network
+net-toolsเป็นชุดคาสั่งเกี่ยวกับการจัดการเครือช่ายเช่น ifconfig, netstatเป็นต้น
+epel-releaseเป็น repo สาหรับการติดตั้ง Sofware packageบางตัว
+################################
+
+
+
+================================
+##### Firewall by iptables #####
+================================
+nano หรือ vi /etc/selinux/config
+แก้ SELINUX ให้เป็น disabled
+
+
+ติดตั้ง iptables-services
+yum -y install iptables-service
+systemctl enable iptables
+systemctl start iptables
+iptables-nvL
+
+แก้ไข Rules ของ iptablesโดยการแก้ที่ไฟล์
+nano หรือ vi /etc/sysconfig/iptables
+เพิ่ม 3 แถวนี้เข้าไปข้างล่างแถว -A INPUT -p tcp-m state --state NEW -m tcp--dport 22 -j ACCEPT
+-A INPUT -p tcp-m state --state NEW -m tcp--dport 80 -j ACCEPT
+-A INPUT -p tcp-m state --state NEW -m tcp--dport 443 -j ACCEPT
+-A INPUT -p tcp-m state --state NEW -m tcp--dport 3306 -j ACCEPT
+
+เมื่อแก้ไขเสร็จแล้ว ทำการ restart iptables
+systemctl restart iptables
+################################
+
+
+
+======================
+##### SSH Server #####
+======================
+yum -y install openssh-server openssh-client
+ssystemctl enable sshd
+systemctl start sshd
+systemctl status sshd
+
+ตั้งค่า Firewall หากคุณเปิดใช้งาน Firewall อยู่แล้ว คุณจะต้องอนุญาตให้ SSH (พอร์ต 22) เข้าออกได้
+firewall-cmd --add-service=ssh --permanent
+firewall-cmd --reload
+
+***** กรณีไม่ต้องการให้ root login เข้ามา *****
+Disable Root Login
+แก้ไขไฟล์ /etc/ssh/sshd_config
+จากเดิม
+#PermitRootLogin yes
+แก้เป็น
+PermitRootLogin no
+แล้วทำการ restart SSH service
+######################
+
+
+
+========================================
+##### การตั้งค่าให้ซิงค์เวลาอัตโนมัติหลังบูตเครื่อง #####
+========================================
+ติดตั้งและคอนฟิก chrony
+yum install chrony
+
+ไฟล์คอนฟิกของ chrony คือ /etc/chrony.conf ดีฟอลต์จากการติดตั้ง จะมีรายชื่อเซิร์ฟเวอร์ NTP Server ที่เปิดบริการสาธารณะ ให้เราไปเทียบเวลาได้
+cat /etc/chrony.conf
+systemctl enable chronyd
+systemctl start chronyd
+systemctl status chronyd
+
+chronyc tracking
+chronyc ระบุออปชัน tracking เพื่อดูรายละเอียดการตั้งค่าเวลา
+########################################
+
+
+
+=======================
+##### Time Server #####
+=======================
+yum -y install ntp
+systemctl enable ntpd
+systemctl start ntpd
+
+-แก้ไข Time server โดยการแก้ไขไฟล์ /etc/ntp.conf
+server time.ega.or.th iburst
+server time.navy.mi.th iburst
+server time1.nimt.or.th iburst
+server time2.nimt.or.th iburst
+จากนั้นทาการ restart service
+systemctlrestart ntpd
+
+ทำการตรวจสอบการทางานผ่าน ntpq
+ntpq-pn
+timedatectl
+#######################
+
+
+
+===========================
+##### Database Server #####
+===========================
+yum install mariadb-server
+systemctl enable mariadb
+systemctl start mariadb
+
+ลองใช้คำสั่ง ps เพื่อดูชื่อโปรเซส ก็ยังคงเป็น mysqld
+ps -ef | grep mysql
+
+ดีฟอลต์ไดเรกทอรีในการเก็บไฟล์ฐานข้อมูลก็ยังใช้ /var/lib/mysql/
+ls -l /var/lib/mysql/
+
+mysql -u root -p
+ดีฟอลต์คอนฟิกจากติดตั้ง การรันคำสั่ง mysql ผู้ใช้งานไม่ต้องระบุ username, password ในการเข้าใช้ฐานข้อมูลเหมือนเดิม แถมยังได้สิทธิ์ root (ของฐานข้อมูล) ด้วย ซึ่งอันตรายมาก
+exit
+
+แนะนำหลังการติดตั้งทุกครั้งไม่ว่าจะเป็น MariaDB หรือ MySQL ให้รันคำสั่ง mysql_secure_installation เพื่อคอนฟิกฐานข้อมูลเบื้องต้น เช่นตั้งรหัสผ่านของ root
+/usr/bin/mysql_secure_installation
+ตอบ y จนกว่าจะขึ้จให้ตั้งรหัสผ่าน
+New password:              <-- พิมพ์รหัสผ่านใหม่ เวลาพิมพ์จะไม่ขึ้นตัวอักษรใดๆ
+Re-enter new password:     <-- พิมพ์รหัสผ่านใหม่อีกครั้ง
+
+การกำหนดให้ MariaDB สามารถเข้าใช้งานได้จาก Localhost เท่านั้น (ซึ่งเหมาะสมในกรณีที่ Application และ Database อยู่บนเครื่องเดียวกัน)
+โดยให้ทาการแก้ไขไฟล์ชื่อ /etc/my.cnfแล้วใส่ค่า Configuration ดังนี้
+หาหัวข้อ [mysqld] แล้วพิมพ์เพิ่ม
+bind-address=127.0.0.1
+จากนั้นทาการ restart mariadb
+systemctl restart mariadb
+
+ตรวจสอบสถานะของ MariaDBservice
+netstat -antp
+###########################
+
+
+
+====================================
+##### การ update maridDB และ php #####
+====================================
+yum install php php-mysql -y
+systemctl enable httpd
+systemctl start httpd
+php — version
+
+แก้ไข TIMEZONE ของ php
+nano /etc/php.ini
+ในหัวข้อ [Date] ถ้าไม่มีให้พิมพ์เพิ่ม
+[Date]
+; Defines the default timezone used by the date functions
+; http://php.net/
+--> date.timezonedate.timezone = “Asia/Bangkok”
+
+จากนั้นทำการ Restart httpd อีกครั้ง เพื่อ Reload Configure ข้างต้น
+systemctl restart httpd
+systemctl status httpd
+####################################
+
+
+
+======================
+##### Web server #####
+======================
+yum-y install httpd
+systemctl enable httpd
+systemctl start httpd
+systemctl status httpd
+
+ตรวจสอบสถานะของ HTTPD
+netstat -antp
+ทดสอบเข้าใช้งานผ่าน Web browser โดยใช้ ip ของเครื่องแม่ข่าย
+
+HTTPD (Apache) + PHP
+yum-y install php
+systemctl restart httpd
+echo "<?phpecho PHP_VERSION; ?>" > /var/www/html/phpversion.php
+
+การทำให้ HTTPD Connect Database ด้วย PHP
+yum -y install php-mysql
+systemctl restart httpd
+
+ทดสอบโดยสร้างไฟล์ต่อไปนี้
+ไฟล์ /var/www/html/dbuser.php
+<?php
+$dbserver= "localhost";
+$dbuser= "wwwuser";
+$dbpassword= "AbCpassWoRD";
+$conn = mysql_connect($dbserver,$dbuser,$dbpassword);
+?>
+
+ไฟล์ /var/www/html/test-app.php
+<?php
+include 'dbuser.php';
+if($conn)
+{ echo "Connected successfully"; }
+else
+{ echo "Connection failed"; }
+mysql_close($conn);
+?>
+ทดสอบการใช้งานผ่าน Web browser  <ip address>/test-app.php
+
+HTTPD : เปิดการใช้งาน HTTPS
+yum -y install mod_ssl
+systemctl restart httpd
+netstat -ant
+######################
+
+
+
+==========================
+##### ติดตั้ง PhpMyAdmin #####
+==========================
+yum install epel-release -y
+yum install phpmyadmin -y
+
+httpd -v
+Server version: Apache/2.4.6 (CentOS)
+Server built: Nov 14 2016 18:04:44
+
+nano /etc/httpd/conf.d/phpMyAdmin.conf
+# Apache 2.4
+<RequireAny>
+Require ip 127.0.0.1
+Require ip ::1
+--> Require ip 172.25.1.0/24 (เปลี่ยนเป็นวง ip ของตนเอง)
+</RequireAny>
+
+เมื่อ Configure เสร็จให้ทำการ restart httpd
+systemctl restart httpd
+
+จากนั้นให้เปิด Web Browser แล้วพิมพ์ช่อง URL เป็น http://IP-Address-Server/phpmyadmin และทำการทดสอบ Login ด้วย root และรหัสที่ได้ตั้งไว้ในข้อ 2 ดังนี้
+
+***** แก้ไขกรณีลืม password database *****
+ขั้นตอนที่ 1: หยุดบริการ MariaDB
+# systemctl stop mariadb
+
+ตรวจสอบว่าหยุดแล้ว:
+# ps aux | grep maria
+
+2. เริ่ม MariaDB แบบไม่เช็ครหัสผ่าน
+# mysqld_safe --skip-grant-tables --skip-networking &
+
+3. เข้า MariaDB โดยไม่ใช้รหัส
+#mysql -u root
+
+4. เปลี่ยนรหัส root
+MariaDB 10.4+ 
+mysql> FLUSH PRIVILEGES;
+mysql> ALTER USER 'root'@'localhost' IDENTIFIED BY 'รหัสใหม่ที่ต้องการ';
+mysql> EXIT;
+
+5. รีสตาร์ท MariaDB แบบปกติ
+# systemctl restart mariadb
+##########################
+
+
+
+=====================
+##### FTP serve #####
+=====================
+yum -y install vsftpd
+systemctl enable vsftpd
+systemctl start vsftpd
+systemctl status vsftpd
+netstat-antp
+
+แก้ไขไฟล์ /etc/vsftpd/vsftpd.confดังตัวอย่าง
+anonymous_enable=NO
+chroot_local_user=YES
+allow_writeable_chroot=YES
+pasv_enable=YES
+port_enable=YES
+pasv_max_port=10029
+pasv_min_port=10020
+
+***** FTP serverwith SSL *****
+opensslreq-x509 -nodes -days 365 -newkeyrsa:1024 -keyout/etc/vsftpd/vsftpd.pem-out /etc/vsftpd/vsftpd.pem
+
+แก้ไขไฟล์ /etc/vsftpd/vsftpd.confโดยเพิ่ม Configuration ต่อไปนี้
+ssl_enable=YES
+rsa_cert_file=/etc/vsftpd/vsftpd.pem
+rsa_private_key_file=/etc/vsftpd/vsftpd.pem
+allow_anon_ssl=NO
+force_local_data_ssl=YES
+force_local_logins_ssl=YES
+ssl_tlsv1=YES
+ssl_sslv2=YES
+ssl_sslv3=YES
+require_ssl_reuse=NO
+ssl_ciphers=HIGH
+#####################
